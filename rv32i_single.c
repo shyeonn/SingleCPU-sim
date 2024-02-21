@@ -8,6 +8,12 @@
 
 #include "rv32i.h"
 
+#define P_DEBUG printf
+
+struct imem_output_t imem(struct imem_input_t imem_in, uint32_t *imem_data);
+struct control_output_t control_unit(uint32_t opcode);
+struct regfile_output_t regfile(struct regfile_input_t regfile_in, uint32_t *reg_data);
+
 int main (int argc, char *argv[]) {
 
 	// get input arguments
@@ -75,22 +81,41 @@ int main (int argc, char *argv[]) {
 	struct imem_input_t imem_in;
 	struct imem_output_t imem_out;
 
+	struct regfile_input_t regfile_in;
+	struct regfile_output_t regfile_out;
+	uint8_t opcode;
+	struct control_output_t control_out;
+
 	uint32_t cc = 2;	// clock count
-	
-	//initialize
-	imem_in.addr = 0;
+				
+	//Initialize 
+	pc_curr = 0;
 
 	while (cc < CLK_NUM) {
 		// instruction fetch
+		imem_in.addr = pc_curr;
+		pc_next = pc_curr + 4;
+
 		imem_out = imem(imem_in, imem_data);
+		P_DEBUG("dout : %08X\n", imem_out.dout);
+
 		// instruction decode
-		regfile_out = regfile(regfile_in, reg_data);
-		// execution
-		alu_out = alu(alu_in);
-		// memory
-		dmem_out = dmem(dmem_in, dmem_data);
-		// write-back
+		opcode = imem_out.dout & 0x3F;
+		P_DEBUG("opcode : %x\n", opcode);
+
+		control_out = control_unit(opcode);
+
+		regfile_in.rs1 = (imem_out.dout >> 15) & 0x3F;
+		regfile_in.rd = (imem_out.dout >> 7) & 0x3F;
 		
+		regfile_out = regfile(regfile_in, reg_data);
+//		// execution
+//		alu_out = alu(alu_in);
+//		// memory
+//		dmem_out = dmem(dmem_in, dmem_data);
+//		// write-back
+		
+		pc_curr = pc_next;
 		cc++;
 	}
 
@@ -102,14 +127,94 @@ int main (int argc, char *argv[]) {
 }
 
 struct imem_output_t imem(struct imem_input_t imem_in, uint32_t *imem_data) {
-	uint32_t curr_inst = imem_data[imem_in.addr];
 	
 	struct imem_output_t imem_out;
 
-	//
-	
+	imem_out.dout = imem_data[imem_in.addr/4];
 
+	return imem_out;
+}
 
-	
+struct control_output_t control_unit(uint32_t opcode){
+	struct control_output_t control;
 
+	switch (opcode) {
+		//R-Type
+		case 0b0110011:
+			control.branch = 0;
+			control.mem_read = 0;
+			control.memtoreg = 0;
+			control.aluop = 0b10;
+			control.mem_write = 0;
+			control.alu_src = 1;
+			control.reg_write = 1; 
+			break;
+		//I-Type
+		case 0b0010011:
+		case 0b0000011:
+			control.branch = 0;
+			control.mem_read = 1;
+			control.memtoreg = 1;
+			control.aluop = 0b10;
+			control.mem_write = 0;
+			control.alu_src = 1;
+			control.reg_write = 1; 
+			break;
+		//S-Type
+		case 0b0100011:
+			control.branch = 0;
+			control.mem_read = 0;
+			control.memtoreg = 1;
+			control.aluop = 0b00;
+			control.mem_write = 1;
+			control.alu_src = 1;
+			control.reg_write = 0; 
+			break;
+		//SB-Type
+		case 0b1100011:
+			control.branch = 1;
+			control.mem_read = 0;
+			control.memtoreg = 0;
+			control.aluop = 0b10;
+			control.mem_write = 0;
+			control.alu_src = 0;
+			control.reg_write = 0; 
+			break;
+		//U-Type
+		case 0b0110111:
+			control.branch = 0;
+			control.mem_read = 0;
+			control.memtoreg = 0;
+			control.aluop = 0b11;
+			control.mem_write = 0;
+			control.alu_src = 1;
+			control.reg_write = 1; 
+			break;
+		//UJ-Type
+		case 0b1101111:
+			control.branch = 1;
+			control.mem_read = 1;
+			control.memtoreg = 1;
+			control.aluop = 0b11;
+			control.mem_write = 0;
+			control.alu_src = 1;
+			control.reg_write = 1; 
+			break;
+	}
+
+	return control;
+}
+
+struct regfile_output_t regfile(struct regfile_input_t regfile_in, uint32_t *reg_data){
+	struct regfile_output_t regfile_out;
+
+	regfile_out.rs1_dout = reg_data[regfile_in.rs1];
+
+	if(regfile_in.rs2 < REG_WIDTH)
+		regfile_out.rs2_dout = reg_data[regfile_in.rs2];
+
+	if(regfile_in.reg_write)
+		reg_data[regfile_in.rd] = regfile_in.rd_din;
+
+	return regfile_out;
 }
