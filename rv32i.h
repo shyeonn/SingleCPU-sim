@@ -17,6 +17,16 @@
 #define IMEM_DEPTH 1024
 #define DMEM_DEPTH 1024
 
+// Opcode
+#define I_L-Type 0b0000011
+#define I_A-Type 0b0010011
+#define S-Type 0b0100011
+#define R-Type 0b0110011
+#define U-Type 0b0110111
+#define SB-Type 0b1100011
+#define UJ-Type 0b1101111
+
+
 // configs
 #define CLK_NUM 45
 
@@ -62,4 +72,4 @@ struct alu_output_t {
 	uint32_t result;
 	uint8_t zero;
 	uint8_t sign;
-}
+};

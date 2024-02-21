@@ -103,12 +103,22 @@ int main (int argc, char *argv[]) {
 		opcode = imem_out.dout & 0x3F;
 		P_DEBUG("opcode : %x\n", opcode);
 
-		control_out = control_unit(opcode);
+		//control_out = control_unit(opcode);
 
 		regfile_in.rs1 = (imem_out.dout >> 15) & 0x3F;
 		regfile_in.rd = (imem_out.dout >> 7) & 0x3F;
+
+		if (opcode == SB-Type || opcode == R-Type)
+		  regfile_in.rs2 = (imem_out.dout >> 20) & 0x3F;
+
+		//Immediate generation
+		if (opcode == U-Type)
+		  alu_in.in2 = (imem_out.dout >> 12) & 0xFFFFF;
+		else if (opcode == I_L-Type || opcode == I_R-Type)
+		  alu_in.in2 = (imem_out.dout >> 20) & 0xFFF;
 		
-		regfile_out = regfile(regfile_in, reg_data);
+		regfile_out = regfile(regfile_in, reg_data, READ);
+
 //		// execution
 //		alu_out = alu(alu_in);
 //		// memory
@@ -205,16 +215,19 @@ struct control_output_t control_unit(uint32_t opcode){
 	return control;
 }
 
-struct regfile_output_t regfile(struct regfile_input_t regfile_in, uint32_t *reg_data){
+struct regfile_output_t regfile(struct regfile_input_t regfile_in, uint32_t *reg_data, enum REG regwrite){
+
 	struct regfile_output_t regfile_out;
 
-	regfile_out.rs1_dout = reg_data[regfile_in.rs1];
+	if(regwrite == READ){
+	  regfile_out.rs1_dout = reg_data[regfile_in.rs1];
 
-	if(regfile_in.rs2 < REG_WIDTH)
-		regfile_out.rs2_dout = reg_data[regfile_in.rs2];
-
-	if(regfile_in.reg_write)
+	  if(regfile_in.rs2 < REG_WIDTH)
+		  regfile_out.rs2_dout = reg_data[regfile_in.rs2];
+	}
+	else if(regwrite  = WRITE){
 		reg_data[regfile_in.rd] = regfile_in.rd_din;
+	}
 
 	return regfile_out;
 }
