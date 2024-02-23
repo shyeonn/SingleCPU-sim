@@ -18,17 +18,56 @@
 #define DMEM_DEPTH 1024
 
 // Opcode
-#define I_L-Type 0b0000011
-#define I_A-Type 0b0010011
-#define S-Type 0b0100011
-#define R-Type 0b0110011
-#define U-Type 0b0110111
-#define SB-Type 0b1100011
-#define UJ-Type 0b1101111
+#define I_L_TYPE 0b0000011
+#define I_R_TYPE 0b0010011
+#define S_TYPE 0b0100011
+#define R_TYPE 0b0110011
+#define U_TYPE 0b0110111
+#define SB_TYPE 0b1100011
+#define UJ_TYPE 0b1101111
+#define U_TYPE 0b0110111
 
+// Func3(Loads)
+#define LB 0b000
+
+// Func3(Stores)
+
+// Func3(Arithmetic & Shifts)
+#define F3_SL 0b001
+#define F3_SR 0b101
+#define F3_ADD_SUB 0b000
+#define F3_XOR 0b100
+#define F3_OR 0b110
+#define F3_AND 0b111
+#define F3_SLT 0b010
+#define F3_SLTU 0b011
+
+// Func3(Branches)
+#define F3_BEQ 0b000
+#define F3_BNE 0b001
+#define F3_BLT 0b100
+#define F3_BGE 0b101
+#define F3_BLTU 0b110
+#define F3_BGEU 0b111
+
+// Alu control
+#define C_AND 0b0000
+#define C_OR 0b0001
+#define C_XOR 0b0011
+#define C_SL 0b1000
+#define C_SR 0b1010
+#define C_SRA 0b1011
+#define C_SUB 0b0110
+#define C_ADD 0b0010
 
 // configs
 #define CLK_NUM 45
+
+// Register
+enum REG {
+  READ = 0,
+  WRITE
+};
 
 // structures
 struct imem_input_t {
@@ -54,7 +93,6 @@ struct regfile_input_t {
 	uint8_t rs2;
 	uint8_t rd;
 	uint32_t rd_din;
-	uint8_t reg_write;
 };
 
 struct regfile_output_t {
@@ -72,4 +110,15 @@ struct alu_output_t {
 	uint32_t result;
 	uint8_t zero;
 	uint8_t sign;
+};
+
+struct dmem_input_t {
+  uint32_t addr;
+  uint32_t din;
+  uint8_t mem_write;
+  uint8_t mem_read;
+};
+
+struct dmem_output_t {
+  uint32_t dout;
 };
