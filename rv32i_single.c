@@ -155,8 +155,12 @@ int main (int argc, char *argv[]) {
 		alu_in.in1 = regfile_out.rs1_dout;
 
 		//Immediate generation
-		if (opcode == I_L_TYPE || opcode == I_R_TYPE)
+		if (opcode == I_L_TYPE || opcode == I_R_TYPE){
 			alu_in.in2 = (imem_out.dout >> 20) & 0xFFF;
+			//Input is negative number
+			if(alu_in.in2 & 0x800)
+				alu_in.in2 = alu_in.in2 | 0xFFFFF000;
+		}
 		else if (opcode == U_LU_TYPE || opcode == U_AU_TYPE)
 			imm = imem_out.dout & ~0xFFF;
 		else if (opcode == UJ_TYPE){
