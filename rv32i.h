@@ -20,12 +20,13 @@
 // Opcode
 #define I_L_TYPE 0b0000011
 #define I_R_TYPE 0b0010011
+#define I_J_TYPE 0b1100111
 #define S_TYPE 0b0100011
 #define R_TYPE 0b0110011
-#define U_TYPE 0b0110111
 #define SB_TYPE 0b1100011
+#define U_LU_TYPE 0b0110111
+#define U_AU_TYPE 0b0010111
 #define UJ_TYPE 0b1101111
-#define U_TYPE 0b0110111
 
 // Func3(Loads)
 #define LB 0b000
@@ -61,7 +62,7 @@
 #define C_ADD 0b0010
 
 // configs
-#define CLK_NUM 45
+#define CLK_NUM 5
 
 // Register
 enum REG {
@@ -76,16 +77,6 @@ struct imem_input_t {
 
 struct imem_output_t {
 	uint32_t dout;
-};
-
-struct control_output_t {
-	uint8_t branch;
-	uint8_t mem_read;
-	uint8_t memtoreg;
-	uint8_t aluop;
-	uint8_t mem_write;
-	uint8_t alu_src;
-	uint8_t reg_write;
 };
 
 struct regfile_input_t {
