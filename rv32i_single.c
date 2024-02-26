@@ -124,6 +124,9 @@ int main (int argc, char *argv[]) {
 		imem_in.addr = pc_curr;
 
 		imem_out = imem(imem_in, imem_data);
+		// no more instruction
+		if(!imem_out.dout)
+			break;
 		D_PRINTF("IF", "addr - 0x%08X", imem_in.addr);
 		D_PRINTF("IF", "dout - 0x%08X", imem_out.dout);
 
@@ -136,13 +139,13 @@ int main (int argc, char *argv[]) {
 		if (opcode == R_TYPE)
 			func7 = (imem_out.dout >> 25) & 0x7F;
 
-		regfile_in.rs1 = (imem_out.dout >> 15) & 0x3F;
+		regfile_in.rs1 = (imem_out.dout >> 15) & 0x1F;
 		D_PRINTF("ID", "[I]rs1 - %d", regfile_in.rs1);
-		regfile_in.rd = (imem_out.dout >> 7) & 0x3F;
+		regfile_in.rd = (imem_out.dout >> 7) & 0x1F;
 		D_PRINTF("ID", "[I]rd - %d", regfile_in.rd);
 
 		if (opcode == SB_TYPE || opcode == R_TYPE){
-			regfile_in.rs2 = (imem_out.dout >> 20) & 0x3F;
+			regfile_in.rs2 = (imem_out.dout >> 20) & 0x1F;
 			D_PRINTF("ID", "[I]rs2 - %d", regfile_in.rs2);
 		}
 
@@ -150,7 +153,7 @@ int main (int argc, char *argv[]) {
 
 		D_PRINTF("ID", "[O]rs1_dout - %d", regfile_out.rs1_dout);
 		if (opcode == SB_TYPE || opcode == R_TYPE)
-		D_PRINTF("ID", "[O]rs2_dout - %d", regfile_out.rs1_dout);
+		D_PRINTF("ID", "[O]rs2_dout - %d", regfile_out.rs2_dout);
 		
 		alu_in.in1 = regfile_out.rs1_dout;
 
@@ -309,20 +312,28 @@ struct alu_output_t alu(struct alu_input_t alu_in){
 	switch(alu_in.alu_control){
 		case C_AND:
 			alu_out.result = alu_in.in1 & alu_in.in2;
+			break;
 		case C_OR:
 			alu_out.result = alu_in.in1 | alu_in.in2;
+			break;
 		case C_XOR:
 			alu_out.result = alu_in.in1 ^ alu_in.in2;
+			break;
 		case C_SL:
 			alu_out.result = alu_in.in1 << (int32_t)alu_in.in2;
+			break;
 		case C_SR:
 			alu_out.result = alu_in.in1 >> (int32_t)alu_in.in2;
+			break;
 		case C_SRA:
 			alu_out.result = (int32_t)alu_in.in1 >> (int32_t)alu_in.in2;
+			break;
 		case C_SUB:
 			alu_out.result = (int32_t)alu_in.in1 - (int32_t)alu_in.in2;
+			break;
 		default:
 			alu_out.result = (int32_t)alu_in.in1 + (int32_t)alu_in.in2;
+			break;
 	}
 
 	if(alu_out.result)
@@ -346,16 +357,16 @@ uint8_t alu_control_gen(uint8_t opcode, uint8_t func3, uint8_t func7){
 		//Arithmetic & Shifts
 			case F3_SL:
 				return C_SL;
-			case F3_SR:
-				if(((func7 >> 6) & 1))
+			case F3_ADD_SUB:
+				if(((func7 >> 5) & 1))
 					return C_SUB;
 				else
 					return C_ADD;
-			case F3_ADD_SUB:
-				if(((func7 >> 6) & 1))
+			case F3_SR:
+				if(((func7 >> 5) & 1))
 					return C_SRA;
-			else
-				return C_SR;
+				else
+					return C_SR;
 			case F3_XOR:
 				return C_XOR;
 			case F3_OR:
