@@ -62,7 +62,7 @@
 #define C_ADD 0b0010
 
 // configs
-#define CLK_NUM 20
+#define CLK_NUM 100
 
 // Register
 enum REG {
@@ -101,6 +101,7 @@ struct alu_output_t {
 	uint32_t result;
 	uint8_t zero;
 	uint8_t sign;
+	uint8_t ucmp;
 };
 
 struct dmem_input_t {

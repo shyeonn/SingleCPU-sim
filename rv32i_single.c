@@ -1,18 +1,21 @@
 /* **************************************
  * Module: top design of rv32i single-cycle processor
  *
- * Author:
+ * Author: Sanghyeon Park
  *
  * **************************************
  */
+#define DEBUG 0
 
 #include "rv32i.h"
 
 #define D_PRINTF(x, ...) \
 	do {\
+		if(DEBUG){ \
 		printf("%s: ", x);\
 		printf(__VA_ARGS__);\
 		printf("\n");\
+		}\
 	}while(0)\
 
 
@@ -132,7 +135,7 @@ int main (int argc, char *argv[]) {
 
 
 		// instruction decode
-		opcode = imem_out.dout & 0x3F;
+		opcode = imem_out.dout & 0x7F;
 
 		if (!(opcode == U_LU_TYPE || opcode == U_AU_TYPE ||opcode == UJ_TYPE))
 			func3 = (imem_out.dout >> 12) & 0x7;
@@ -160,7 +163,7 @@ int main (int argc, char *argv[]) {
 		//Immediate generation
 		if (opcode == I_L_TYPE || opcode == I_R_TYPE){
 			alu_in.in2 = (imem_out.dout >> 20) & 0xFFF;
-			//Input is negative number
+			//Input is a negative number
 			if(alu_in.in2 & 0x800)
 				alu_in.in2 = alu_in.in2 | 0xFFFFF000;
 		}
@@ -181,6 +184,11 @@ int main (int argc, char *argv[]) {
 			imm = imm | ((imem_out.dout >> 25) & 0x3F) << 5;
 			imm = imm | ((imem_out.dout >> 8) & 0xF) << 1;
 			imm = imm | ((imem_out.dout >> 7) & 0x1) << 11;
+			//Input is a negative number
+			if(imm & 0x1000)
+				imm = imm | 0xFFFFE000;
+
+			alu_in.in2 = regfile_out.rs2_dout;
 		}
 		else
 			alu_in.in2 = regfile_out.rs2_dout;
@@ -220,6 +228,16 @@ int main (int argc, char *argv[]) {
 				regfile_in.rd_din = imm;
 			else if(opcode == U_AU_TYPE)
 				regfile_in.rd_din = pc_curr + imm;
+			else if(opcode == R_TYPE || opcode == I_R_TYPE){
+				if(func3 == F3_SLT){
+					regfile_in.rd_din = alu_out.sign ? 1 : 0;
+				}
+				else if(func3 == F3_SLTU){
+					regfile_in.rd_din = alu_out.ucmp ? 1 : 0;
+				}
+				else
+					regfile_in.rd_din = alu_out.result;
+			}
 			else
 				regfile_in.rd_din = alu_out.result;
 
@@ -239,26 +257,28 @@ int main (int argc, char *argv[]) {
 
 			switch(func3){
 				case F3_BEQ:
-					pc_next_sel = r1 == r2;
+					pc_next_sel = alu_out.zero ? 1 : 0;
 					break;
 				case F3_BNE:
-					pc_next_sel = r1 != r2;
+					pc_next_sel = alu_out.zero ? 0 : 1;
 					break;
 				case F3_BLT:
-					pc_next_sel = (int32_t)r1 < (int32_t)r2;
+					pc_next_sel = (!alu_out.zero && alu_out.sign) ? 1 : 0;
 					break;
 				case F3_BGE:
-					pc_next_sel = (int32_t)r1 >= (int32_t)r2;
+					pc_next_sel = (alu_out.zero || !alu_out.sign) ? 1 : 0;
 					break;
 				case F3_BLTU:
-					pc_next_sel = r1 < r2;
+					pc_next_sel = (!alu_out.zero && alu_out.ucmp) ? 1 : 0;
 					break;
 				case F3_BGEU:
-					pc_next_sel = r1 >= r2;
+					pc_next_sel = (alu_out.zero || !alu_out.ucmp) ? 1 : 0;
 					break;
 			}
-			if(pc_next_sel)
-				pc_next = pc_curr + imm;
+			if(pc_next_sel){
+				pc_next = pc_curr + (int32_t)imm;
+				D_PRINTF("PC", "Take branch");
+			}
 		}
 		else if(opcode == UJ_TYPE)
 			pc_next = pc_curr + imm;
@@ -308,6 +328,7 @@ struct alu_output_t alu(struct alu_input_t alu_in){
 
 	alu_out.zero = 1;
 	alu_out.sign = 1;
+	alu_out.ucmp = 0;
 
 	switch(alu_in.alu_control){
 		case C_AND:
@@ -336,12 +357,13 @@ struct alu_output_t alu(struct alu_input_t alu_in){
 			break;
 	}
 
-	if(alu_out.result)
-	  alu_out.zero = 0;
-
-	if(alu_out.result > 0)
-	  alu_out.sign = 0;
 	//does not handle the case of sign = 1 when result is zero
+	if(alu_out.result)
+		alu_out.zero = 0;
+	if((int32_t)alu_out.result > 0)
+		alu_out.sign = 0;
+	if(alu_in.in1 < alu_in.in2)
+		alu_out.ucmp = 1; 
 
 	return alu_out;
 }
