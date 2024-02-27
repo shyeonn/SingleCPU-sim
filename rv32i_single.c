@@ -175,7 +175,11 @@ int main (int argc, char *argv[]) {
 			imm = imm | ((imem_out.dout >> 31) & 0x1) << 20;
 			imm = imm | ((imem_out.dout >> 21) & 0x3FF) << 1;
 			imm = imm | ((imem_out.dout >> 20) & 0x1) << 11;
-			imm = imm | (imem_out.dout & ~0xFF000);
+			imm = imm | (imem_out.dout & 0xFF000);
+
+			//Input is a negative number
+			if(imm & 0x100000)
+				imm = imm | 0xFFE00000;
 		}
 		else if (opcode == SB_TYPE){
 			imm = 0;
@@ -281,7 +285,7 @@ int main (int argc, char *argv[]) {
 			}
 		}
 		else if(opcode == UJ_TYPE)
-			pc_next = pc_curr + imm;
+			pc_next = pc_curr + (int32_t)imm;
 
 
 		for(int i = 0; i < REG_WIDTH; i++){
