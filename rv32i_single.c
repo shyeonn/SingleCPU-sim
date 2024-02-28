@@ -23,7 +23,7 @@ struct imem_output_t imem(struct imem_input_t imem_in, uint32_t *imem_data);
 struct regfile_output_t regfile(struct regfile_input_t regfile_in, uint32_t *reg_data, enum REG regwrite);
 struct alu_output_t alu(struct alu_input_t alu_in);
 uint8_t alu_control_gen(uint8_t opcode, uint8_t func3, uint8_t func7);
-struct dmem_output_t dmem(struct dmem_input_t dmem_in, uint32_t *dmem_data);
+struct dmem_output_t dmem(struct dmem_input_t dmem_in, uint8_t *dmem_data);
 
 int main (int argc, char *argv[]) {
 
@@ -46,17 +46,17 @@ int main (int argc, char *argv[]) {
 	// memory data (global)
 	uint32_t *reg_data;
 	uint32_t *imem_data;
-	uint32_t *dmem_data;
+	uint8_t *dmem_data;
 
 	reg_data = (uint32_t*)malloc(32*sizeof(uint32_t));
 	imem_data = (uint32_t*)malloc(IMEM_DEPTH*sizeof(uint32_t));
-	dmem_data = (uint32_t*)malloc(DMEM_DEPTH*sizeof(uint32_t));
+	dmem_data = (uint8_t*)malloc(DMEM_DEPTH*WORD_SIZE*sizeof(uint8_t));
 
 	// initialize memory data
 	int i, j, k;
 	for (i = 0; i < 32; i++) reg_data[i] = 0;
 	for (i = 0; i < IMEM_DEPTH; i++) imem_data[i] = 0;
-	for (i = 0; i < DMEM_DEPTH; i++) dmem_data[i] = 0;
+	for (i = 0; i < DMEM_DEPTH*WORD_SIZE; i++) dmem_data[i] = 0;
 
 	uint32_t d, buf;
 	i = 0;
@@ -84,9 +84,15 @@ int main (int argc, char *argv[]) {
 	i = 0;
 	printf("\n*** Reading %s ***\n", argv[2]);
 	while (fscanf(f_dmem, "%8x", &buf) != EOF) {
-		dmem_data[i] = buf;
-		printf("dmem[%03d]: %08X\n", i, dmem_data[i]);
-		i++;
+		printf("dmem[%03d]: ", i);
+		for(int j = 0; j < WORD_SIZE; j++){
+			dmem_data[i+j] = (buf & (0xFF << j*BYTE_BIT)) >> j*BYTE_BIT;
+		}
+		for(int j = WORD_SIZE-1; j >= 0; j--){
+			printf("%02X", dmem_data[i+j]);
+		}
+		printf("\n");
+		i += WORD_SIZE;
 	}
 
 	fclose(f_imem);
@@ -309,12 +315,16 @@ int main (int argc, char *argv[]) {
 			pc_next = pc_curr + (int32_t)imm;
 
 
-		for(int i = 0; i < REG_WIDTH; i++){
+		//for(int i = 0; i < REG_WIDTH; i++){
+		for(int i = 0; i < 20; i++){
 			printf("reg[%02d]: %08X\n", i, reg_data[i]);
 		}
 		printf("\n");
-		for(int i = 0; i < 10; i++){
-			printf("dmem[%02d]: %08X\n", i, dmem_data[i]);
+		for(int i = 0; i < 40; i += 4){
+			printf("dmem[%02d]: ", i);
+			for(int j = 3; j >= 0; j--)
+				printf("%02X", dmem_data[i+j]);
+			printf("\n");
 		}
 		cc++;
 	}
@@ -431,60 +441,52 @@ uint8_t alu_control_gen(uint8_t opcode, uint8_t func3, uint8_t func7){
 	}
 }
 
-struct dmem_output_t dmem(struct dmem_input_t dmem_in, uint32_t *dmem_data) {
+struct dmem_output_t dmem(struct dmem_input_t dmem_in, uint8_t *dmem_data) {
 	struct dmem_output_t dmem_out;
-	uint32_t base = dmem_in.addr / WORD_SIZE;
-	uint32_t temp_data = dmem_data[base];
-	uint8_t offset = dmem_in.addr % WORD_SIZE;
 
 	if(dmem_in.mem_read){
 		switch(dmem_in.func3){
 			case LB:
 			case LBU:
-				dmem_out.dout = (uint8_t)(temp_data >> BYTE_BIT*offset);
-
+				dmem_out.dout = dmem_data[dmem_in.addr];
 				//Negative number
 				if(dmem_in.func3 == LB && dmem_out.dout & 0x80)
 					dmem_out.dout |= 0xFFFFFF00;
 				break;
 			case LH:
 			case LHU:
-				dmem_out.dout = (uint16_t)(temp_data >> BYTE_BIT*offset);
-
-				if(offset == WORD_SIZE-1)
-					dmem_out.dout |=  ((uint8_t)dmem_data[base+1] << BYTE_BIT);
+				dmem_out.dout = dmem_data[dmem_in.addr];
+				dmem_out.dout |= dmem_data[dmem_in.addr+1] << BYTE_BIT;
 				//Negative number
 				if(dmem_in.func3 == LH && dmem_out.dout & 0x8000)
 					dmem_out.dout |= 0xFFFF0000;
 				break;
 			case LW:
-				dmem_out.dout = (temp_data >> BYTE_BIT*offset);
-				
-				if(offset != 0)
-					dmem_out.dout |= (dmem_data[base+1] << (4 - offset));
+				dmem_out.dout = dmem_data[dmem_in.addr];
+				dmem_out.dout |= dmem_data[dmem_in.addr+1] << BYTE_BIT;
+				dmem_out.dout |= dmem_data[dmem_in.addr+2] << BYTE_BIT*2;
+				dmem_out.dout |= dmem_data[dmem_in.addr+3] << BYTE_BIT*3;
 				break;
 		}
-		D_PRINTF("MEM", "Read data : %x", dmem_out.dout);
+				D_PRINTF("MEM", "Read : %x", dmem_out.dout);
 	}
 	if(dmem_in.mem_write){
 		switch(dmem_in.func3){
 			case SB:
-				dmem_data[base] = ~0xFF;
-				dmem_data[base] |= (uint8_t)dmem_in.din << BYTE_BIT*offset;
+				dmem_data[dmem_in.addr] = (uint8_t)dmem_in.din;
+				break;
 			case SH:
-				dmem_data[base] = (uint16_t)dmem_in.din << BYTE_BIT*offset;
-				if(offset = WORD_SIZE-1){
-					//Erase Data
-					dmem_data[base+1] &= ~0xFF;
-					dmem_data[base+1] |= 0xFF & (dmem_in.din >> BYTE_BIT*offset);
-				}
+				dmem_data[dmem_in.addr] = (uint8_t)dmem_in.din;
+				dmem_data[dmem_in.addr+1] = (uint8_t)(dmem_in.din >> BYTE_BIT);
+				break;
 			case SW:
-				dmem_data[base] = (uint32_t)dmem_in.din << offset;
-				if(offset != 0){
-					dmem_data[base+1] = dmem_in.din >> (WORD_SIZE-BYTE_BIT*offset);
-				}
+				dmem_data[dmem_in.addr] = (uint8_t)dmem_in.din;
+				dmem_data[dmem_in.addr+1] = (uint8_t)(dmem_in.din >> BYTE_BIT);
+				dmem_data[dmem_in.addr+2] = (uint8_t)(dmem_in.din >> BYTE_BIT*2);
+				dmem_data[dmem_in.addr+3] = (uint8_t)(dmem_in.din >> BYTE_BIT*3);
+				break;
 		}
-		D_PRINTF("MEM", "Write data : %x", dmem_data[dmem_in.addr/WORD_SIZE]);
+				D_PRINTF("MEM", "Write : %08X", *(uint32_t*)(&dmem_data[dmem_in.addr]));
 	}
 
 	return dmem_out;

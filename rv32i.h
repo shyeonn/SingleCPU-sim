@@ -1,7 +1,7 @@
 /* **************************************
  * Module: top design of rv32i single-cycle processor
  *
- * Author:
+ * Author: Sanghyeon Park
  *
  * **************************************
  */
@@ -16,6 +16,8 @@
 #define REG_WIDTH 32
 #define IMEM_DEPTH 1024
 #define DMEM_DEPTH 1024
+#define WORD_SIZE 4
+#define BYTE_BIT 8
 
 // Opcode
 #define I_L_TYPE 0b0000011
@@ -30,8 +32,15 @@
 
 // Func3(Loads)
 #define LB 0b000
+#define LH 0b001
+#define LW 0b010
+#define LBU 0b100
+#define LHU 0b101
 
 // Func3(Stores)
+#define SB 0b000
+#define SH 0b001
+#define SW 0b010
 
 // Func3(Arithmetic & Shifts)
 #define F3_SL 0b001
@@ -107,6 +116,7 @@ struct alu_output_t {
 struct dmem_input_t {
   uint32_t addr;
   uint32_t din;
+  uint8_t func3;
   uint8_t mem_write;
   uint8_t mem_read;
 };
