@@ -71,7 +71,7 @@
 #define C_ADD 0b0010
 
 // configs
-#define CLK_NUM 100
+#define CLK_NUM 10
 
 // Register
 enum REG {

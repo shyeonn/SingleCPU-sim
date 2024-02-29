@@ -5,7 +5,7 @@
  *
  * **************************************
  */
-#define DEBUG 1
+#define DEBUG 0
 
 #include "rv32i.h"
 
@@ -167,7 +167,7 @@ int main (int argc, char *argv[]) {
 		alu_in.in1 = regfile_out.rs1_dout;
 
 		//Immediate generation
-		if (opcode == I_L_TYPE || opcode == I_R_TYPE){
+		if (opcode == I_L_TYPE || opcode == I_R_TYPE || opcode == I_J_TYPE){
 			alu_in.in2 = (imem_out.dout >> 20) & 0xFFF;
 			//Input is a negative number
 			if(alu_in.in2 & 0x800)
@@ -212,7 +212,6 @@ int main (int argc, char *argv[]) {
 		}
 		else
 			alu_in.in2 = regfile_out.rs2_dout;
-		D_PRINTF("ID", "imm - %d", imm);
 
 		// execution
 		alu_in.alu_control = alu_control_gen(opcode, func3, func7);
@@ -228,7 +227,7 @@ int main (int argc, char *argv[]) {
 		D_PRINTF("EX", "[I]sign - %d", alu_out.sign);
 
 		// memory
-		if(opcode == S_TYPE || opcode == I_L_TYPE){
+		if(opcode == S_TYPE || opcode == I_L_TYPE || opcode == I_J_TYPE){
 			dmem_in.addr = alu_out.result;
 			D_PRINTF("MEM", "[I]addr - %x", dmem_in.addr);
 			dmem_in.din = regfile_out.rs2_dout;
@@ -240,8 +239,12 @@ int main (int argc, char *argv[]) {
 				dmem_in.mem_write = 1;
 				dmem_in.mem_read = 0;
 			}
-			else{
+			else if(opcode == I_L_TYPE){
 				dmem_in.mem_read = 1;
+				dmem_in.mem_write = 0;
+			}
+			else{
+				dmem_in.mem_read = 0;
 				dmem_in.mem_write = 0;
 			}
 
@@ -250,7 +253,7 @@ int main (int argc, char *argv[]) {
 
 		// write-back
 		if(!(opcode == SB_TYPE || opcode == S_TYPE)){
-			if(opcode == UJ_TYPE)
+			if(opcode == UJ_TYPE || opcode == I_J_TYPE)
 				regfile_in.rd_din = pc_curr + 4;
 			else if(opcode == U_LU_TYPE)
 				regfile_in.rd_din = imm;
@@ -313,7 +316,8 @@ int main (int argc, char *argv[]) {
 		}
 		else if(opcode == UJ_TYPE)
 			pc_next = pc_curr + (int32_t)imm;
-
+		else if(opcode == I_J_TYPE)
+			pc_next = alu_out.result;
 
 		//for(int i = 0; i < REG_WIDTH; i++){
 		for(int i = 0; i < 20; i++){
